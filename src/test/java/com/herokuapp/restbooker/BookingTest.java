@@ -3,10 +3,7 @@ package com.herokuapp.restbooker;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.herokuapp.model.Booking;
-import com.herokuapp.model.BookingDates;
-import com.herokuapp.model.BookingResponse;
-import com.herokuapp.model.Credentials;
+import com.herokuapp.model.*;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
@@ -15,7 +12,9 @@ import org.testng.annotations.Test;
 import org.testng.asserts.SoftAssert;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
@@ -32,6 +31,7 @@ public class BookingTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private String token;
+    private Long createdBookingId;
 
     private RequestSpecification getRequestSpec() {
         return given()
@@ -42,8 +42,7 @@ public class BookingTest {
     @BeforeClass
     public void getToken() throws JsonProcessingException {
         Credentials credentials = Credentials.builder()
-                .username("admin")
-                .password(USERNAME)
+                .username(USERNAME)
                 .password(PASSWORD)
                 .build();
         String credentialsBody = objectMapper.writeValueAsString(credentials);
@@ -93,7 +92,30 @@ public class BookingTest {
 
         BookingResponse bookingResponse = objectMapper.readValue(response.getBody().asString(), BookingResponse.class);
         assertThat("New booking ID shouldn't be null", bookingResponse.getBookingid(), notNullValue());
+
+        createdBookingId = bookingResponse.getBookingid();
         softAssertAllBookingResponseFields(bookingResponse.getBooking(), booking);
+    }
+
+    @Test(dependsOnMethods = "createNewBooking")
+    public void deleteBooking() throws JsonProcessingException {
+        getRequestSpec()
+                .pathParam("id", createdBookingId)
+                .auth()
+                .preemptive()
+                .basic(USERNAME, PASSWORD)
+                .delete(BOOKING_BY_ID);
+
+        Response allBookingsResponse = getRequestSpec().get(ALL_BOOKINGS);
+        List<BookingId> bookings = Arrays.asList(objectMapper.readValue(
+                allBookingsResponse.getBody().asString(), BookingId[].class));
+
+        Optional<BookingId> deletedBookingOptional = bookings.stream()
+                .filter(bookingId -> bookingId.getBookingid().equals(createdBookingId))
+                .findFirst();
+
+        assertThat(String.format("Booking with ID = %s should be deleted", createdBookingId),
+                deletedBookingOptional.isEmpty());
     }
 
     @Test
@@ -110,6 +132,27 @@ public class BookingTest {
 
         Booking bookingResponse = objectMapper.readValue(response.getBody().asString(), Booking.class);
         softAssertAllBookingResponseFields(bookingResponse, booking);
+    }
+
+    @Test
+    public void patchBooking() throws JsonProcessingException {
+        Integer id = 1;
+        String newName = "Peter";
+
+        Response response = getRequestSpec().
+                pathParam("id", id)
+                .get(BOOKING_BY_ID);
+        Booking booking = objectMapper.readValue(response.getBody().asString(), Booking.class);
+
+        Response secondResponse = getRequestSpec()
+                .cookie("token", token)
+                .pathParam("id", id)
+                .body("{\"firstname\":\"Peter\"}")
+                .patch(BOOKING_BY_ID);
+        Booking patchedBooking = objectMapper.readValue(secondResponse.getBody().asString(), Booking.class);
+
+        booking.setFirstname(newName);
+        softAssertAllBookingResponseFields(patchedBooking, booking);
     }
 
     private Booking createBasicBooking() {
