@@ -4,9 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.herokuapp.model.*;
-import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import io.restassured.specification.RequestSpecification;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import org.testng.asserts.SoftAssert;
@@ -16,12 +14,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 
-public class BookingTest {
+public class BookingTest extends BaseTest {
 
     private static final String ALL_BOOKINGS = "/booking";
     private static final String BOOKING_BY_ID = "/booking/{id}";
@@ -32,12 +29,6 @@ public class BookingTest {
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private String token;
     private Long createdBookingId;
-
-    private RequestSpecification getRequestSpec() {
-        return given()
-                .contentType(ContentType.JSON)
-                .baseUri("https://restful-booker.herokuapp.com");
-    }
 
     @BeforeClass
     public void getToken() throws JsonProcessingException {
