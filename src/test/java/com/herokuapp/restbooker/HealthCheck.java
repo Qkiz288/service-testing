@@ -2,15 +2,13 @@ package com.herokuapp.restbooker;
 
 import org.testng.annotations.Test;
 
-import static io.restassured.RestAssured.given;
+public class HealthCheck extends BaseTest {
 
-public class HealthCheck {
-
-    private static final String HEALTH_CHECK = "https://restful-booker.herokuapp.com/ping";
+    private static final String HEALTH_CHECK = "/ping";
 
     @Test
     public void healthCheckTest() {
-        given()
+        getRequestSpec()
                 .when()
                 .get(HEALTH_CHECK)
                 .then()
