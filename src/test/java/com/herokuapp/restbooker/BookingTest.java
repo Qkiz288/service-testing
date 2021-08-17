@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.herokuapp.model.*;
 import io.restassured.response.Response;
+import org.hamcrest.Matchers;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import org.testng.asserts.SoftAssert;
@@ -25,6 +26,11 @@ public class BookingTest extends BaseTest {
     private static final String AUTH = "/auth";
     private static final String USERNAME = "admin";
     private static final String PASSWORD = "password123";
+
+    private static final String NEW_USER_FIRSTNAME = "Kamil";
+    private static final String NEW_USER_LASTNAME = "K";
+    private static final LocalDate NEW_USER_CHECKIN = LocalDate.now();
+    private static final LocalDate NEW_USER_CHECKOUT = LocalDate.now().plusWeeks(1);
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     private String token;
@@ -89,6 +95,16 @@ public class BookingTest extends BaseTest {
     }
 
     @Test(dependsOnMethods = "createNewBooking")
+    public void getBookingIdsFilterByName() throws JsonProcessingException {
+        Response response = getRequestSpec().queryParam("firstname", NEW_USER_FIRSTNAME)
+                .queryParam("lastname", NEW_USER_LASTNAME).get(ALL_BOOKINGS);
+        List<BookingId> bookingIds = Arrays.asList(objectMapper.readValue(response.getBody().asString(),
+                BookingId[].class));
+
+        assertThat("Booking IDs list should not be empty", bookingIds, is(Matchers.not(empty())));
+    }
+
+    @Test(dependsOnMethods = "getBookingIdsFilterByName")
     public void deleteBooking() throws JsonProcessingException {
         getRequestSpec()
                 .pathParam("id", createdBookingId)
@@ -147,22 +163,18 @@ public class BookingTest extends BaseTest {
     }
 
     private Booking createBasicBooking() {
-        String fname = "Kamil";
-        String lname = "K";
         Integer totalPrice = 45;
         Boolean depositPaid = true;
-        LocalDate checkin = LocalDate.now();
-        LocalDate checkout = LocalDate.now().plusWeeks(1);
         String additionalNeeds = "Nothing";
 
         return Booking.builder()
-                .firstname(fname)
-                .lastname(lname)
+                .firstname(NEW_USER_FIRSTNAME)
+                .lastname(NEW_USER_LASTNAME)
                 .totalprice(totalPrice)
                 .depositpaid(depositPaid)
                 .bookingdates(BookingDates.builder()
-                        .checkin(checkin)
-                        .checkout(checkout)
+                        .checkin(NEW_USER_CHECKIN)
+                        .checkout(NEW_USER_CHECKOUT)
                         .build())
                 .additionalneeds(additionalNeeds)
                 .build();
