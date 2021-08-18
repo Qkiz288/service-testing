@@ -2,8 +2,10 @@ package com.herokuapp.restbooker;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.herokuapp.model.*;
+import io.restassured.http.Header;
 import io.restassured.response.Response;
 import org.hamcrest.Matchers;
 import org.testng.annotations.BeforeClass;
@@ -33,6 +35,7 @@ public class BookingTest extends BaseTest {
     private static final LocalDate NEW_USER_CHECKOUT = LocalDate.now().plusWeeks(1);
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    private final ObjectMapper xmlMapper = new XmlMapper().registerModule(new JavaTimeModule());
     private String token;
     private Long createdBookingId;
 
@@ -78,16 +81,31 @@ public class BookingTest extends BaseTest {
     }
 
     @Test
-    public void createNewBooking() throws JsonProcessingException {
+    public void getBookingByIdXmlResponse() throws JsonProcessingException {
+        int id = 1;
+        Header xmlHeader = new Header("Accept", "application/xml");
+        Response response = getRequestSpec()
+                .header(xmlHeader)
+                .pathParam("id", id)
+                .get(BOOKING_BY_ID);
+
+        Booking booking = xmlMapper.readValue(response.getBody().asString(), Booking.class);
+        assertThat("First name shouldn't be null", response.xmlPath().getString("booking.firstname"),
+                allOf(notNullValue(), not(equalTo(""))));
+        assertThat("Last name shouldn't be null", booking.getLastname(),
+                allOf(notNullValue(), not(equalTo(""))));
+    }
+
+    @Test
+    public void createNewBooking() {
         Booking booking = createBasicBooking();
-        String requestBody = objectMapper.writeValueAsString(booking);
 
         Response response = getRequestSpec()
-                .body(requestBody)
+                .body(booking)
                 .post(ALL_BOOKINGS);
         assertThat("Response status code should be 200", response.getStatusCode(), equalTo(200));
 
-        BookingResponse bookingResponse = objectMapper.readValue(response.getBody().asString(), BookingResponse.class);
+        BookingResponse bookingResponse = response.as(BookingResponse.class);
         assertThat("New booking ID shouldn't be null", bookingResponse.getBookingid(), notNullValue());
 
         createdBookingId = bookingResponse.getBookingid();
